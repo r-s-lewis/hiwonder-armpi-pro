@@ -30,6 +30,10 @@ class GamepadControl:
         self.ARM_EE_FLAG = False
         self.ARM_HOME = False
 
+        # Add these lines to existing init
+        self.last_command_time = time.time()
+        self.min_command_interval = 0.1  # 100ms between commands
+
     
     def initialize_gamepad(self):
         """Attempts to initialize the first connected gamepad."""
@@ -51,6 +55,12 @@ class GamepadControl:
         Returns:
             GamepadCmds: Updated command object reflecting current gamepad input.
         """
+        current_time = time.time()
+        
+        # Check if enough time has passed since last command
+        if current_time - self.last_command_time < self.min_command_interval:
+            return self.gamepad_cmds_prev
+            
         gamepad_cmds = GamepadCmds()
         
 
@@ -83,6 +93,7 @@ class GamepadControl:
         gamepad_cmds.arm_ee = self.map_value(self.abs_x, -0.1, 0.1) if self.ARM_EE_FLAG else 0.0
         gamepad_cmds.arm_home = int(self.ARM_HOME)
 
+        self.last_command_time = current_time  # Update last command time
         self.gamepad_cmds_prev = gamepad_cmds
         return gamepad_cmds
 
@@ -112,17 +123,25 @@ class GamepadControl:
             setattr(self, code_map[event.code][0], code_map[event.code][1])
 
     @staticmethod
-    def map_value(x: float, out_min: float, out_max: float) -> float:
+    def map_value(x: float, out_min: float, out_max: float, deadzone: float = 0.05) -> float:
         """Maps an input value from hardware range (0-255) to a desired output range.
 
         Args:
             x (float): Input value (0 to 255).
-            out_min (float): Minimum output range.
+            out_min (float): Minimum output range. 
             out_max (float): Maximum output range.
+            deadzone (float): Percentage of range to ignore for stick drift (0.0 to 1.0).
 
         Returns:
-            float: Mapped value.
+            float: Mapped value, 0.0 if within deadzone.
         """
         joint_min, joint_max = 0, 255
+        center = (joint_max - joint_min) / 2
+        deadzone_range = (joint_max - joint_min) * deadzone
+
+        # Check if input is within deadzone around center
+        if abs(x - center) < deadzone_range:
+            return 0.0
+
         val = (x - joint_min) * (out_max - out_min) / (joint_max - joint_min) + out_min
         return val if abs(val) > 0.005 else 0.0
