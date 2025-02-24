@@ -31,6 +31,7 @@ def monitor_gamepad():
             if len(cmdlist) > 2:
                 cmdlist.pop(0)  # Retain only the latest two commands
             cmdlist.append(gpc.get_gamepad_cmds())
+      
             time.sleep(0.001)
     except KeyboardInterrupt:
         print("[INFO] Gamepad monitoring stopped.")

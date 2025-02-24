@@ -168,6 +168,9 @@ class ServoBusController:
     def move_servo(self, servo_id, position, duration=250):
         position = max(0, min(position, 1000))
         duration = max(0, min(duration, 30000))
+
+
+        
         self.send_command(servo_id, LOBOT_SERVO_MOVE_TIME_WRITE, position, duration)
 
 
