@@ -24,6 +24,8 @@ class HiwonderRobot:
 
         self.joint_values = [0, 0, 90, 0, 0, 0]  # degrees
         self.home_position = [0, 0, 90, 0, 0, 0]  # degrees
+
+        # Set lengths of the robot arm links
         self.l1 = 0.155
         self.l2 = 0.099
         self.l3 = 0.095
@@ -56,14 +58,15 @@ class HiwonderRobot:
         # self.set_base_velocity(cmd)
         self.set_arm_velocity(cmd)
 
-        ######################################################################
         # Forward Kinematics calculation
         position = [0]*3
 
         DH = np.zeros((5, 4))
         T = np.zeros((5, 4, 4))
         
+        # Debugging
         print(f'[DEBUG] Current thetalist (deg) = {self.joint_values}') 
+
         # Initialize DH parameters [theta, alpha, a, d]
         DH = np.array([
             [np.deg2rad(self.joint_values[0]), np.pi/2, 0, self.l1],
@@ -77,6 +80,7 @@ class HiwonderRobot:
     
         T_cumulative = np.eye(4)  # Initialize with identity matrix
         
+        # Compute transformation matrices for each joint
         for i in range(5):
             ct = np.cos(DH[i,0])
             st = np.sin(DH[i,0])
@@ -85,6 +89,7 @@ class HiwonderRobot:
             r = DH[i,2]
             d = DH[i,3]
 
+            # Transformation matrix for joint i
             Ti= np.array([
                 [ct, -st*ca, st*sa, r*ct],
                 [st, ct*ca, -ct*sa, r*st],
@@ -100,7 +105,6 @@ class HiwonderRobot:
             T_cumulative[1,3],
             T_cumulative[2,3]
         ]
-        ######################################################################
 
         print(f'[DEBUG] XYZ position: X: {round(position[0], 3)}, Y: {round(position[1], 3)}, Z: {round(position[2], 3)} \n')
 
@@ -113,13 +117,10 @@ class HiwonderRobot:
         motor4 w2|     |w3 motor2
         
         """
-        ######################################################################
-        # insert your code for finding "speed"
 
+        # Compute wheel speeds
         speed = [0]*4
         
-        ######################################################################
-
         # Send speeds to motors
         self.board.set_motor_speed(speed)
         time.sleep(self.speed_control_delay)
@@ -130,7 +131,7 @@ class HiwonderRobot:
 
     def compute_Jacobian(self):
 
-        
+        # Compute Jacobian matrix for the robot arm
         angles_rad = np.deg2rad(self.joint_values)
 
         sigma1 = np.cos(angles_rad[0] - angles_rad[1] + angles_rad[2] - angles_rad[3])
@@ -166,11 +167,10 @@ class HiwonderRobot:
         
         
 
-        ######################################################################
-        # insert your code for finding "thetalist_dot"
+        # Calculate joint velocities using Jacobian
 
+        # Initialize thetalist_dot
         thetalist_dot = [0]*5
-
 
         J_v = self.compute_Jacobian()
 
@@ -181,16 +181,11 @@ class HiwonderRobot:
         
         # Convert velocity to numpy array
         vel = np.array(vel)
-        # print(vel)
-        
-        # Calculate joint velocities using pseudoinverse
-        
+
+        # Calculate joint velocities
         thetalist_dot = J_inv @ (vel * 0.3)
 
-
-
         ######################################################################
-
 
         print(f'[DEBUG] Current thetalist (deg) = {self.joint_values}') 
         print(f'[DEBUG] linear vel: {[round(vel[0], 3), round(vel[1], 3), round(vel[2], 3)]}')
@@ -212,6 +207,7 @@ class HiwonderRobot:
         new_thetalist[4] += dt * K * cmd.arm_j5
         new_thetalist[5] = self.joint_values[5] + dt * K * cmd.arm_ee
 
+        # enforce joint limits
         new_thetalist = [round(theta,2) for theta in new_thetalist]
         print(f'[DEBUG] Commanded thetalist (deg) = {new_thetalist}')       
         
@@ -228,9 +224,6 @@ class HiwonderRobot:
             theta = np.rad2deg(theta)
 
         theta = self.enforce_joint_limits(theta, joint_id=joint_id)
-
- 
-
 
         pulse = self.angle_to_pulse(theta)
         self.servo_bus.move_servo(joint_id, pulse, duration)
@@ -251,9 +244,6 @@ class HiwonderRobot:
 
         if radians:
             thetalist = [np.rad2deg(theta) for theta in thetalist]
-
-
-   
 
         thetalist = self.enforce_joint_limits(thetalist)
         self.joint_values = thetalist # updates joint_values with commanded thetalist
